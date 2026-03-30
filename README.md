@@ -4,13 +4,7 @@ OmniRAG-Agent: Agentic Omnimodal Reasoning for Low-Resource Long Audio-Video Que
 
 ## Overview
 
-Long-horizon omnimodal question answering requires reasoning over text, images, audio, and video simultaneously. Despite recent progress on OmniLLMs, low-resource long audio-video QA still suffers from costly dense encoding, weak fine-grained retrieval, limited proactive planning, and no clear end-to-end optimization.
-
-To address these issues, we propose **OmniRAG-Agent**, an agentic omnimodal QA method for budgeted long audio-video reasoning. It builds an image-audio retrieval-augmented generation (RAG) module that lets an OmniLLM fetch short, relevant frames and audio snippets from external retrieval banks. Moreover, it uses an agent loop that plans, calls tools across turns, and merges retrieved evidence to answer complex queries.
-
-Specifically, OmniRAG-Agent decomposes video understanding into fine-grained retrieval of visual frames and audio segments indexed by CLIP embeddings and ASR transcripts. At each turn, the model follows a **"think → search → rethink → answer"** cycle: it emits a `<think>` reasoning block, then issues either a `<search_image>` or `<search_audio>` tool call to retrieve the top-k relevant media segments, and finally outputs an `<answer>` once sufficient evidence is gathered. The entire pipeline is trained end-to-end with **GRPO** (Group Relative Policy Optimization) on the OmniVideoBench dataset, using binary correctness as the reward signal.
-
-By enabling structured, iterative retrieval over long videos through reinforcement learning, OmniRAG-Agent provides a practical path toward omnimodal reasoning in resource-constrained settings.
+Long-horizon omnimodal question answering answers questions by reasoning over text, images, audio, and video. Despite recent progress on OmniLLMs, low-resource long audio-video QA still suffers from costly dense encoding, weak fine-grained retrieval, limited proactive planning, and no clear end-to-end optimization.To address these issues, we propose OmniRAG-Agent, an agentic omnimodal QA method for budgeted long audio-video reasoning. It builds an image–audio retrieval-augmented generation module that lets an OmniLLM fetch short, relevant frames and audio snippets from external banks. Moreover, it uses an agent loop that plans, calls tools across turns, and merges retrieved evidence to answer complex queries. Furthermore, we apply group relative policy optimization to jointly improve tool use and answer quality over time. Experiments on OmniVideoBench, WorldSense, and Daily-Omni show that OmniRAG-Agent consistently outperforms prior methods under low-resource settings and achieves strong results, with ablations validating each component.
 
 ---
 
@@ -50,6 +44,7 @@ data/
 └── videoomnibench/
     ├── train.parquet
     └── test.parquet
+    └── test_agent.jsonl
 ```
 
 Each sample in the parquet file contains the following fields:
@@ -88,8 +83,7 @@ Then run:
 
 ```bash
 cd retrival_api
-python embeddings.py
-# nohup python embeddings.py > result_build_image_index.log 2>&1 &
+nohup python embeddings.py > result_build_image_index.log 2>&1 &
 ```
 
 This creates the following structure under `retrival_api/rag_db/videos/<video_id>/`:
@@ -128,22 +122,17 @@ This adds to each video directory:
 #### 3. Start RAG retrieval server on port 8001
 
 ```bash
-python -m uvicorn retrival_api.retriever:app --host 0.0.0.0 --port 8001
-# nohup python -m uvicorn retrival_api.retriever:app \
-#     --host 0.0.0.0 --port 8001 > result_api.log 2>&1 &
+nohup python -m uvicorn retrival_api.retriever:app \
+    --host 0.0.0.0 --port 8001 > result_api.log 2>&1 &
 ```
 
 The server exposes two endpoints:
 - `POST /query` — retrieve top-k video frames by text query
 - `POST /query_audio` — retrieve top-k audio segments by text query
 
-#### 4. Run GRPO training with Qwen2.5-Omni-3B (requires 4 × 80GB GPUs)
+#### 4. Run GRPO training with Qwen2.5-Omni-3B (requires 4 × 40GB GPUs)
 
 ```bash
-# Start Ray head node
-ray start --head --port=6406
-
-# Launch GRPO training
 nohup bash -u examples/grpo_trainer/run_omni_searchqa.sh \
     > result_run_omni_searchqa_grpo.log 2>&1 &
 ```
@@ -177,7 +166,7 @@ fuser -k 8001/tcp
 
 ### Evaluation
 
-After training, evaluate the fine-tuned model on the OmniVideoBench test set:
+After training, evaluate the fine-tuned model on the test set:
 
 ```bash
 python omni_batch_eval.py \
@@ -191,18 +180,6 @@ python omni_batch_eval.py \
     --include-video \
     --top-k 5 \
     --max-turns 20
-```
-
-Resume from checkpoint if interrupted:
-
-```bash
-python omni_batch_eval.py \
-    --jsonl data/videoomnibench/test.jsonl \
-    --out-traj results/output_trajectory.jsonl \
-    --out-summary results/output_summary.json \
-    --model-path /path/to/finetuned_model \
-    --include-video \
-    --resume
 ```
 
 **Evaluation arguments:**
@@ -241,7 +218,7 @@ The evaluation outputs a summary JSON with overall accuracy:
 
 ```
 rl-omni/
-├── omni_batch_eval.py              # Agent evaluation script (OmniVideoBench)
+├── omni_batch_eval.py              # Agent evaluation script
 ├── examples/
 │   └── grpo_trainer/
 │       └── run_omni_searchqa.sh   # GRPO training launch script
