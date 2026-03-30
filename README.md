@@ -4,6 +4,8 @@ OmniRAG-Agent: Agentic Omnimodal Reasoning for Low-Resource Long Audio-Video Que
 
 ## Overview
 
+![method](images/Figure_3_01.png)
+
 Long-horizon omnimodal question answering answers questions by reasoning over text, images, audio, and video. Despite recent progress on OmniLLMs, low-resource long audio-video QA still suffers from costly dense encoding, weak fine-grained retrieval, limited proactive planning, and no clear end-to-end optimization.To address these issues, we propose OmniRAG-Agent, an agentic omnimodal QA method for budgeted long audio-video reasoning. It builds an image–audio retrieval-augmented generation module that lets an OmniLLM fetch short, relevant frames and audio snippets from external banks. Moreover, it uses an agent loop that plans, calls tools across turns, and merges retrieved evidence to answer complex queries. Furthermore, we apply group relative policy optimization to jointly improve tool use and answer quality over time. Experiments on OmniVideoBench, WorldSense, and Daily-Omni show that OmniRAG-Agent consistently outperforms prior methods under low-resource settings and achieves strong results, with ablations validating each component.
 
 ---
@@ -239,4 +241,15 @@ rl-omni/
 │   ├── video_ingest.py            # Video frame & audio segment extraction
 │   └── build_audio_index.py       # Whisper ASR + FAISS audio index builder
 └── gigpo/                         # GiGPO algorithm implementation
+```
+
+## BibTex
+If you find this work is helpful for your research, please cite:
+```
+@article{zhu2026omnirag,
+  title={OmniRAG-Agent: Agentic Omnimodal Reasoning for Low-Resource Long Audio-Video Question Answering},
+  author={Zhu, Yifan and Mu, Xinyu and Feng, Tao and Ou, Zhonghong and Gong, Yuning and Luo, Haoran},
+  journal={arXiv preprint arXiv:2602.03707},
+  year={2026}
+}
 ```
